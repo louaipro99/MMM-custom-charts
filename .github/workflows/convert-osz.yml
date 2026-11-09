@@ -1,0 +1,86 @@
+name: Convert OSZ to MMM Chart + Song
+
+on:
+  workflow_dispatch:
+    inputs:
+      input_file:
+        description: "Path to an .osz or .osu file committed to this repository"
+        required: true
+        default: "charts/song.osz"
+        type: string
+      difficulty:
+        description: "1-based beatmap number inside the OSZ"
+        required: true
+        default: "1"
+        type: string
+      side:
+        description: "Which side should receive the notes?"
+        required: true
+        default: "player"
+        type: choice
+        options:
+          - player
+          - opponent
+      song_name:
+        description: "Optional internal song name"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate input
+        shell: bash
+        env:
+          INPUT_FILE: ${{ inputs.input_file }}
+        run: |
+          if [[ "$INPUT_FILE" != *.osz && "$INPUT_FILE" != *.osu ]]; then
+            echo "Input must end in .osz or .osu"
+            exit 1
+          fi
+          if [[ ! -f "$INPUT_FILE" ]]; then
+            echo "File not found in repository: $INPUT_FILE"
+            exit 1
+          fi
+
+      - name: Convert chart and extract song audio
+        shell: bash
+        env:
+          INPUT_FILE: ${{ inputs.input_file }}
+          DIFFICULTY: ${{ inputs.difficulty }}
+          SIDE: ${{ inputs.side }}
+          SONG_NAME: ${{ inputs.song_name }}
+        run: |
+          mkdir -p output/audio
+          ARGS=(
+            "$INPUT_FILE"
+            --difficulty "$DIFFICULTY"
+            --side "$SIDE"
+            --output "output/chart.json"
+            --audio-output "output/audio"
+          )
+          if [[ -n "$SONG_NAME" ]]; then
+            ARGS+=(--song-name "$SONG_NAME")
+          fi
+          python osz_to_mmm.py "${ARGS[@]}"
+
+      - name: Upload chart and song audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: mmm-chart-and-song
+          path: output/
+          if-no-files-found: error
+          retention-days: 14
