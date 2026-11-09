@@ -34,25 +34,61 @@ jobs:
   convert:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out repository (including Git LFS files)
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
-      - name: Validate input
+      - name: Validate input file
         shell: bash
         env:
           INPUT_FILE: ${{ inputs.input_file }}
         run: |
-          if [[ "$INPUT_FILE" != *.osz && "$INPUT_FILE" != *.osu ]]; then
-            echo "Input must end in .osz or .osu"
+          set -euo pipefail
+
+          if [[ ! -f "$INPUT_FILE" ]]; then
+            echo "::error::Input file not found: $INPUT_FILE"
+            echo "Check the input_file path. It must be relative to the repository root."
             exit 1
           fi
-          if [[ ! -f "$INPUT_FILE" ]]; then
-            echo "File not found in repository: $INPUT_FILE"
+
+          echo "Input file details:"
+          ls -lh "$INPUT_FILE"
+          file "$INPUT_FILE"
+
+          if [[ "$INPUT_FILE" == *.osz ]]; then
+            python - "$INPUT_FILE" <<'PY'
+          import sys, zipfile
+          path = sys.argv[1]
+
+          if not zipfile.is_zipfile(path):
+              print(f"::error::'{path}' is not a valid OSZ/ZIP archive.")
+              with open(path, "rb") as f:
+                  sample = f.read(160)
+              if sample.startswith(b"version https://git-lfs.github.com/spec/v1"):
+                  print("The file is a Git LFS pointer, not the actual OSZ.")
+                  print("Enable Git LFS for this repository and ensure the file is uploaded to LFS.")
+              else:
+                  print("Re-upload the original .osz file. Do not rename an .osu or other file to .osz.")
+                  print("An .osz file must be a valid ZIP archive containing one or more .osu files.")
+              sys.exit(1)
+
+          with zipfile.ZipFile(path) as archive:
+              maps = [n for n in archive.namelist() if n.lower().endswith(".osu")]
+              if not maps:
+                  print("::error::The ZIP is valid, but it contains no .osu beatmaps.")
+                  sys.exit(1)
+              print(f"Valid OSZ archive. Found {len(maps)} beatmap(s).")
+          PY
+          elif [[ "$INPUT_FILE" == *.osu ]]; then
+            echo "Standalone .osu selected. Its audio file must also be committed beside it."
+          else
+            echo "::error::Input must end in .osz or .osu"
             exit 1
           fi
 
@@ -64,7 +100,9 @@ jobs:
           SIDE: ${{ inputs.side }}
           SONG_NAME: ${{ inputs.song_name }}
         run: |
+          set -euo pipefail
           mkdir -p output/audio
+
           ARGS=(
             "$INPUT_FILE"
             --difficulty "$DIFFICULTY"
@@ -72,10 +110,22 @@ jobs:
             --output "output/chart.json"
             --audio-output "output/audio"
           )
+
           if [[ -n "$SONG_NAME" ]]; then
             ARGS+=(--song-name "$SONG_NAME")
           fi
+
           python osz_to_mmm.py "${ARGS[@]}"
+
+          if [[ ! -s output/chart.json ]]; then
+            echo "::error::The converter did not produce output/chart.json"
+            exit 1
+          fi
+
+          if ! find output/audio -type f -print -quit | grep -q .; then
+            echo "::error::No audio file was extracted. Check the beatmap's AudioFilename and OSZ contents."
+            exit 1
+          fi
 
       - name: Upload chart and song audio
         uses: actions/upload-artifact@v4
