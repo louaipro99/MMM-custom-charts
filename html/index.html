@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>osz → MMM Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f14;--surface:#13151d;--surface2:#1a1d28;--border:#252836;--border2:#343748;--accent:#7c6df0;--accent-dim:#3d3578;--accent-glow:rgba(124,109,240,0.18);--text:#e4e0f8;--text-mid:#9b96c0;--text-dim:#55516e;--success:#4ade80;--warn:#f59e0b;--error:#f87171;--mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif;--radius:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+.wrap{width:100%;max-width:760px;margin:0 auto;padding:0 24px}
+header{padding:48px 0 40px;border-bottom:1px solid var(--border)}
+.header-inner{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.logo-mark{display:flex;align-items:center;gap:14px}
+.logo-icon{width:42px;height:42px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:8px;display:grid;place-items:center;flex-shrink:0}
+h1{font-size:22px;font-weight:600;letter-spacing:-0.3px;color:var(--text);line-height:1.2}
+h1 span{color:var(--accent)}
+.tagline{font-size:13px;color:var(--text-dim);font-family:var(--mono);margin-top:2px}
+.badge{font-family:var(--mono);font-size:11px;color:var(--text-dim);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;white-space:nowrap}
+main{flex:1;padding:40px 0 64px}
+section+section{margin-top:40px}
+.section-label{font-size:11px;font-family:var(--mono);color:var(--text-dim);letter-spacing:.08em;margin-bottom:14px}
+#dropzone{position:relative;border:1.5px dashed var(--border2);border-radius:var(--radius);padding:56px 32px;text-align:center;background:var(--surface);transition:border-color .2s,background .2s}
+#dropzone.drag-over{border-color:var(--accent);border-style:solid;background:var(--accent-glow)}
+#dropzone.drag-over .dz-icon{transform:scale(1.1)}
+.dz-icon{display:block;margin:0 auto 20px;width:48px;height:48px;color:var(--accent);transition:transform .2s}
+.dz-title{font-size:17px;font-weight:500;color:var(--text);margin-bottom:6px}
+.dz-sub{font-size:13px;color:var(--text-mid);margin-bottom:20px}
+.dz-btn{display:inline-block;background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);font-family:var(--sans);font-size:13px;font-weight:500;padding:8px 20px;border-radius:6px;cursor:pointer;transition:background .15s}
+.dz-btn:hover{background:var(--accent)}
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.options-grid{grid-template-columns:1fr}}
+.opt-group{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.opt-group label{display:block;font-size:12px;color:var(--text-mid);margin-bottom:7px;font-weight:500}
+.opt-group select,.opt-group input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 10px;appearance:none;outline:none;transition:border-color .15s}
+.opt-group select:focus,.opt-group input[type=text]:focus{border-color:var(--accent)}
+.opt-group select option{background:var(--surface2)}
+.checkbox-row{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.checkbox-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.checkbox-row span{font-size:13px;color:var(--text-mid)}
+#beatmap-section{display:none}
+.beatmap-list{display:flex;flex-direction:column;gap:8px}
+.beatmap-item{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;cursor:pointer;transition:border-color .15s,background .15s}
+.beatmap-item:hover{border-color:var(--border2);background:var(--surface2)}
+.beatmap-item.selected{border-color:var(--accent);background:var(--accent-glow)}
+.beatmap-item input[type=radio]{accent-color:var(--accent);flex-shrink:0;width:14px;height:14px;cursor:pointer}
+.beatmap-info{flex:1;min-width:0}
+.beatmap-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.beatmap-meta{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:2px}
+.diff-pill{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid var(--border2);color:var(--text-mid);white-space:nowrap;flex-shrink:0}
+#convert-btn{width:100%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);font-family:var(--sans);font-size:15px;font-weight:600;padding:14px 24px;border-radius:var(--radius);cursor:pointer;transition:background .15s,opacity .15s;display:flex;align-items:center;justify-content:center;gap:10px}
+#convert-btn:hover:not(:disabled){background:var(--accent)}
+#convert-btn:disabled{opacity:.4;cursor:not-allowed}
+#progress-section{display:none}
+.progress-bar-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:999px;height:6px;overflow:hidden;margin-bottom:10px}
+.progress-bar-fill{height:100%;background:var(--accent);border-radius:999px;transition:width .3s ease;width:0%}
+.progress-label{font-family:var(--mono);font-size:12px;color:var(--text-mid)}
+#log-section{display:none}
+.log-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-family:var(--mono);font-size:12px;line-height:1.8;max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.log-line{display:block}
+.log-ok{color:var(--success)}
+.log-warn{color:var(--warn)}
+.log-err{color:var(--error)}
+.log-info{color:var(--text-mid)}
+#output-section{display:none}
+.output-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.output-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px}
+.output-title{font-family:var(--mono);font-size:13px;color:var(--success);display:flex;align-items:center;gap:8px}
+.output-actions{display:flex;gap:8px;flex-shrink:0}
+.out-btn{font-family:var(--sans);font-size:12px;font-weight:500;padding:6px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);color:var(--text);transition:border-color .15s,background .15s;white-space:nowrap}
+.out-btn:hover{border-color:var(--accent)}
+.out-btn.primary{background:var(--accent-dim);border-color:var(--accent)}
+.out-btn.primary:hover{background:var(--accent)}
+.file-tree{padding:16px;font-family:var(--mono);font-size:12px;line-height:2;color:var(--text-mid)}
+.file-tree .tree-folder{color:var(--text);font-weight:500}
+.file-tree .tree-file{color:var(--text-mid);padding-left:24px;display:block}
+.file-tree .tree-size{color:var(--text-dim);margin-left:10px}
+.output-stats{display:flex;border-top:1px solid var(--border)}
+.stat-item{flex:1;padding:12px 16px;border-right:1px solid var(--border)}
+.stat-item:last-child{border-right:none}
+.stat-val{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--text)}
+.stat-key{font-size:11px;color:var(--text-dim);margin-top:2px}
+footer{border-top:1px solid var(--border);padding:20px 0}
+.footer-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.footer-note{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
+.footer-note a{color:var(--text-mid);text-decoration:none}
+.footer-note a:hover{color:var(--accent)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="header-inner">
+      <div class="logo-mark">
+        <div class="logo-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="7" stroke="#7c6df0" stroke-width="1.5"/>
+            <circle cx="11" cy="11" r="3" fill="#7c6df0"/>
+            <line x1="11" y1="1" x2="11" y2="4" stroke="#7c6df0" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="11" y1="18" x2="11" y2="21" stroke="#7c6df0" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="1" y1="11" x2="4" y2="11" stroke="#7c6df0" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="18" y1="11" x2="21" y2="11" stroke="#7c6df0" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>osz <span>→</span> MMM</h1>
+          <div class="tagline">osu! beatmap → Monday Morning Misery chart</div>
+        </div>
+      </div>
+      <div class="badge">client-side · no uploads</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section>
+      <div class="section-label">drop your beatmap</div>
+      <div id="dropzone">
+        <svg class="dz-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 32V16M17 23l7-7 7 7"/>
+          <path d="M8 36a8 8 0 010-16h2.5A12 12 0 1137.5 36H40a6 6 0 000-12"/>
+        </svg>
+        <div class="dz-title">Drop an .osz file here</div>
+        <div class="dz-sub">osu! beatmap archive · any game mode supported</div>
+        <button class="dz-btn" id="browse-btn" type="button">Browse files</button>
+      </div>
+      <input type="file" id="file-input" accept=".osz,.zip" style="display:none">
+    </section>
+
+    <section id="options-section">
+      <div class="section-label">conversion options</div>
+      <div class="options-grid">
+        <div class="opt-group">
+          <label>Output folder name</label>
+          <input type="text" id="opt-folder" placeholder="auto (from beatmap title)" spellcheck="false">
+        </div>
+        <div class="opt-group">
+          <label>BPM override</label>
+          <input type="text" id="opt-bpm" placeholder="auto (from .osu timing)">
+        </div>
+        <div class="opt-group">
+          <label>Scroll speed</label>
+          <select id="opt-speed">
+            <option value="1.5">1.5×</option>
+            <option value="2" selected>2× (default)</option>
+            <option value="2.5">2.5×</option>
+            <option value="3">3×</option>
+          </select>
+        </div>
+        <div class="opt-group" style="display:flex;align-items:center;">
+          <label class="checkbox-row">
+            <input type="checkbox" id="opt-strums" checked>
+            <span>Map hit objects to strum lanes</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section id="beatmap-section">
+      <div class="section-label">pick a difficulty</div>
+      <div class="beatmap-list" id="beatmap-list"></div>
+    </section>
+
+    <section id="progress-section">
+      <div class="section-label">converting</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="progress-label" id="progress-label">Starting…</div>
+    </section>
+
+    <section id="log-section">
+      <div class="section-label">log</div>
+      <div class="log-box" id="log-box" role="log" aria-live="polite"></div>
+    </section>
+
+    <section id="convert-section" style="display:none">
+      <button id="convert-btn" disabled>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h12M11 5l4 4-4 4"/></svg>
+        Convert to MMM
+      </button>
+    </section>
+
+    <section id="output-section">
+      <div class="output-box">
+        <div class="output-header">
+          <div class="output-title">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l3.5 3.5L12 3"/></svg>
+            <span id="output-title-text">ready</span>
+          </div>
+          <div class="output-actions">
+            <button class="out-btn" id="btn-copy-json">Copy chart.json</button>
+            <button class="out-btn primary" id="btn-download">Download ZIP</button>
+          </div>
+        </div>
+        <div class="file-tree" id="file-tree"></div>
+        <div class="output-stats" id="output-stats"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-inner">
+      <div class="footer-note">everything runs in your browser — no server, no uploads</div>
+      <div class="footer-note"><a href="https://github.com" target="_blank" rel="noopener">github</a> · for use with the MMM Toolkit</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  MINIMAL ZIP READER  (no external deps)
+//  Reads the ZIP central directory and inflates stored/deflated entries
+// ═══════════════════════════════════════════════════════════════════
+const ZipReader = (() => {
+  function u16(b,o){return b[o]|(b[o+1]<<8)}
+  function u32(b,o){return (b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0}
+
+  function findEOCD(bytes) {
+    for (let i = bytes.length - 22; i >= 0; i--) {
+      if (bytes[i]===0x50&&bytes[i+1]===0x4B&&bytes[i+2]===0x05&&bytes[i+3]===0x06) return i;
+    }
+    throw new Error('Not a valid ZIP file');
+  }
+
+  async function inflate(data) {
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    writer.write(data);
+    writer.close();
+    const chunks = [];
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const total = chunks.reduce((n,c)=>n+c.length,0);
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { out.set(c,off); off+=c.length; }
+    return out;
+  }
+
+  async function parse(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    const eocd  = findEOCD(bytes);
+    const cdOff = u32(bytes, eocd+16);
+    const cdLen = u32(bytes, eocd+12);
+    const entries = {};
+    let p = cdOff;
+    while (p < cdOff + cdLen) {
+      if (u32(bytes,p) !== 0x02014B50) break;
+      const cMethod  = u16(bytes,p+10);
+      const fnLen    = u16(bytes,p+28);
+      const exLen    = u16(bytes,p+30);
+      const cmLen    = u16(bytes,p+32);
+      const localOff = u32(bytes,p+42);
+      const fname    = new TextDecoder().decode(bytes.slice(p+46, p+46+fnLen));
+      entries[fname] = { method: cMethod, localOff, bytes };
+      p += 46 + fnLen + exLen + cmLen;
+    }
+
+    return {
+      files: Object.keys(entries),
+      async read(name) {
+        const e = entries[name];
+        if (!e) throw new Error('File not in archive: ' + name);
+        const lh = e.localOff;
+        if (u32(e.bytes,lh) !== 0x04034B50) throw new Error('Bad local header');
+        const lfnLen = u16(e.bytes,lh+26);
+        const lexLen = u16(e.bytes,lh+28);
+        const dataOff = lh + 30 + lfnLen + lexLen;
+        const compSize = u32(e.bytes,lh+18);
+        const raw = e.bytes.slice(dataOff, dataOff+compSize);
+        if (e.method === 0) return raw;           // stored
+        if (e.method === 8) return await inflate(raw); // deflated
+        throw new Error('Unsupported compression method: ' + e.method);
+      }
+    };
+  }
+
+  return { parse };
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  MINIMAL ZIP WRITER
+// ═══════════════════════════════════════════════════════════════════
+const ZipWriter = (() => {
+  function w16(v){return [v&0xFF,(v>>8)&0xFF]}
+  function w32(v){return [v&0xFF,(v>>8)&0xFF,(v>>16)&0xFF,(v>>24)&0xFF]}
+
+  function crc32(data) {
+    let c = 0xFFFFFFFF;
+    for (let i=0;i<data.length;i++){
+      c ^= data[i];
+      for(let j=0;j<8;j++) c = c&1 ? (c>>>1)^0xEDB88320 : c>>>1;
+    }
+    return (c^0xFFFFFFFF)>>>0;
+  }
+
+  function concat(...arrays) {
+    const total = arrays.reduce((n,a)=>n+a.length,0);
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const a of arrays){ out.set(a,off); off+=a.length; }
+    return out;
+  }
+
+  function create() {
+    const locals = [];
+    const central = [];
+    let offset = 0;
+
+    function addFile(name, data) {
+      const fname = new TextEncoder().encode(name);
+      const crc = crc32(data);
+      const size = data.length;
+      const local = new Uint8Array([
+        0x50,0x4B,0x03,0x04,
+        20,0, 0,0, 0,0, 0,0, 0,0,
+        ...w32(crc), ...w32(size), ...w32(size),
+        ...w16(fname.length), ...w16(0),
+        ...fname, ...data
+      ]);
+      central.push({ fname, crc, size, offset });
+      locals.push(local);
+      offset += local.length;
+    }
+
+    function build() {
+      const cdParts = central.map(({fname,crc,size,offset})=>new Uint8Array([
+        0x50,0x4B,0x01,0x02,
+        20,0, 20,0, 0,0, 0,0, 0,0, 0,0,
+        ...w32(crc), ...w32(size), ...w32(size),
+        ...w16(fname.length), ...w16(0), ...w16(0),
+        ...w16(0), ...w16(0), ...w32(0),
+        ...w32(offset),
+        ...fname
+      ]));
+      const cdData = concat(...cdParts);
+      const eocd = new Uint8Array([
+        0x50,0x4B,0x05,0x06,
+        0,0, 0,0,
+        ...w16(central.length), ...w16(central.length),
+        ...w32(cdData.length), ...w32(offset),
+        0,0
+      ]);
+      return concat(...locals, cdData, eocd);
+    }
+
+    return { addFile, build };
+  }
+
+  return { create };
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════
+let loadedZip      = null;
+let availableMaps  = [];
+let selectedMap    = null;
+let audioBytes     = null;
+let resultChartJSON = null;
+let resultZipBytes  = null;
+
+// ═══════════════════════════════════════════════════════════════════
+//  DOM
+// ═══════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const dropzone       = $('dropzone');
+const fileInput      = $('file-input');
+const browseBtn      = $('browse-btn');
+const beatmapSection = $('beatmap-section');
+const beatmapList    = $('beatmap-list');
+const convertSection = $('convert-section');
+const convertBtn     = $('convert-btn');
+const progressSec    = $('progress-section');
+const progressFill   = $('progress-fill');
+const progressLabel  = $('progress-label');
+const logSection     = $('log-section');
+const logBox         = $('log-box');
+const outputSection  = $('output-section');
+const outputTitle    = $('output-title-text');
+const fileTree       = $('file-tree');
+const outputStats    = $('output-stats');
+const btnCopyJson    = $('btn-copy-json');
+const btnDownload    = $('btn-download');
+const optFolder      = $('opt-folder');
+const optBpm         = $('opt-bpm');
+const optSpeed       = $('opt-speed');
+const optStrums      = $('opt-strums');
+
+// ═══════════════════════════════════════════════════════════════════
+//  LOGGING / PROGRESS
+// ═══════════════════════════════════════════════════════════════════
+function log(msg, type='info') {
+  logSection.style.display='';
+  const s=document.createElement('span');
+  s.className=`log-line log-${type}`;
+  s.textContent=`${{'ok':'✓','warn':'⚠','err':'✗','info':'·'}[type]||'·'}  ${msg}`;
+  logBox.appendChild(s);
+  logBox.scrollTop=logBox.scrollHeight;
+}
+function clearLog(){ logBox.innerHTML=''; logSection.style.display='none'; }
+function setProgress(pct,label){
+  progressSec.style.display='';
+  progressFill.style.width=pct+'%';
+  progressLabel.textContent=label;
+}
+function hideProgress(){ progressSec.style.display='none'; }
+
+// ═══════════════════════════════════════════════════════════════════
+//  .osu PARSER
+// ═══════════════════════════════════════════════════════════════════
+function parseOsu(text) {
+  const r={meta:{},difficulty:{},timingPoints:[],hitObjects:[],audioFilename:''};
+  let sec='';
+  for (const raw of text.split(/\r?\n/)) {
+    const line=raw.trim();
+    if (!line||line.startsWith('//')) continue;
+    const sm=line.match(/^\[(.+)\]$/);
+    if (sm){sec=sm[1];continue;}
+    if (sec==='General'||sec==='Metadata'){
+      const [k,...v]=line.split(':');
+      if(k&&v.length) r.meta[k.trim()]=v.join(':').trim();
+    }
+    if (sec==='Difficulty'){
+      const [k,...v]=line.split(':');
+      if(k&&v.length) r.difficulty[k.trim()]=parseFloat(v.join(':').trim());
+    }
+    if (sec==='TimingPoints'){
+      const p=line.split(',');
+      if(p.length>=2){
+        const offset=parseFloat(p[0]),beatLen=parseFloat(p[1]);
+        const inherited=p.length>=7?parseInt(p[6])!==0:true;
+        if(inherited&&beatLen>0) r.timingPoints.push({offset,beatLen,bpm:60000/beatLen});
+      }
+    }
+    if (sec==='HitObjects'){
+      const p=line.split(',');
+      if(p.length>=5) r.hitObjects.push({x:parseInt(p[0]),y:parseInt(p[1]),time:parseInt(p[2]),type:parseInt(p[3])});
+    }
+  }
+  r.audioFilename=r.meta['AudioFilename']||'';
+  return r;
+}
+
+function getMainBpm(pts) {
+  if(!pts.length) return 120;
+  if(pts.length===1) return Math.round(pts[0].bpm*100)/100;
+  let best=pts[0],bestDur=0;
+  for(let i=0;i<pts.length;i++){
+    const dur=i<pts.length-1?pts[i+1].offset-pts[i].offset:999999;
+    if(dur>bestDur){bestDur=dur;best=pts[i];}
+  }
+  return Math.round(best.bpm*100)/100;
+}
+
+function buildSections(osuData,bpm,mapStrums){
+  const stepMs=(60000/bpm)/4;
+  const objs=osuData.hitObjects;
+  if(!objs.length) return [];
+  const stepsPerSec=16;
+  const endTime=objs[objs.length-1].time+2000;
+  const totalSecs=Math.ceil(endTime/(stepMs*stepsPerSec))+1;
+  const sections=Array.from({length:totalSecs},()=>({lengthInSteps:stepsPerSec,mustHitSection:true,altAnim:false,changeBPM:false,bpm,notes:[]}));
+  for(const obj of objs){
+    if(obj.type&8) continue;
+    const si=Math.floor(obj.time/(stepMs*stepsPerSec));
+    if(si>=sections.length) continue;
+    let lane=0;
+    if(mapStrums) lane=Math.min(3,Math.max(0,Math.floor((obj.x/512)*4)));
+    const sustain=(obj.type&2)?Math.max(0,stepMs*2):0;
+    sections[si].notes.push([obj.time,lane,sustain]);
+  }
+  while(sections.length&&!sections[sections.length-1].notes.length) sections.pop();
+  return sections;
+}
+
+function buildChart(osuData,options){
+  const bpmOv=options.bpm?parseFloat(options.bpm):null;
+  const bpm=bpmOv&&bpmOv>0?bpmOv:getMainBpm(osuData.timingPoints);
+  const speed=parseFloat(options.speed)||2;
+  const strums=options.strums!==false;
+  const title=osuData.meta['Title']||osuData.meta['TitleUnicode']||'unknown';
+  const artist=osuData.meta['Artist']||'';
+  const diff=osuData.meta['Version']||'Normal';
+  const sections=buildSections(osuData,bpm,strums);
+  const chart={song:{song:title,notes:sections,bpm,speed,player1:'bfhappy',player2:'flippy',needsVoices:false,validScore:true,sections:sections.length}};
+  return {json:JSON.stringify(chart,null,2),bpm,noteCount:sections.reduce((a,s)=>a+s.notes.length,0),sectionCount:sections.length,title,artist,diff};
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function fmtBytes(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(2)+' MB';}
+function sanitize(s){return(s||'').replace(/[<>:"/\\|?*\x00-\x1F]/g,'_').replace(/\s+/g,'-').toLowerCase().slice(0,64)||'song';}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LOAD .osz
+// ═══════════════════════════════════════════════════════════════════
+async function loadOsz(file) {
+  clearLog();
+  hideProgress();
+  outputSection.style.display='none';
+  convertSection.style.display='none';
+  beatmapSection.style.display='none';
+  resultChartJSON=null; resultZipBytes=null; audioBytes=null;
+
+  log(`Reading ${file.name} (${fmtBytes(file.size)})…`,'info');
+  setProgress(5,'Reading file…');
+
+  let ab;
+  try { ab = await file.arrayBuffer(); }
+  catch(e){ log('Could not read file: '+e.message,'err'); return; }
+
+  let zip;
+  try { zip = await ZipReader.parse(ab); }
+  catch(e){ log('Not a valid .osz — '+e.message,'err'); return; }
+
+  loadedZip = zip;
+  log(`Archive opened — ${zip.files.length} files inside`,'ok');
+  setProgress(20,'Finding difficulties…');
+
+  const osuFiles = zip.files.filter(n=>n.endsWith('.osu'));
+  if(!osuFiles.length){ log('No .osu files found inside this archive','err'); return; }
+
+  log(`Found ${osuFiles.length} difficulty file(s)`,'ok');
+  setProgress(50,'Parsing…');
+
+  availableMaps=[];
+  for(const name of osuFiles){
+    try{
+      const bytes = await zip.read(name);
+      const text  = new TextDecoder('utf-8',{fatal:false}).decode(bytes);
+      const data  = parseOsu(text);
+      data._filename = name;
+      availableMaps.push(data);
+    } catch(e){ log(`Skipped ${name}: ${e.message}`,'warn'); }
+  }
+
+  if(!availableMaps.length){ log('Could not parse any .osu files','err'); return; }
+
+  availableMaps.sort((a,b)=>(a.difficulty.OverallDifficulty??0)-(b.difficulty.OverallDifficulty??0));
+  selectedMap = availableMaps[0];
+
+  setProgress(80,'Building difficulty list…');
+
+  beatmapList.innerHTML='';
+  for(let i=0;i<availableMaps.length;i++){
+    const m=availableMaps[i];
+    const diff=m.meta['Version']||m._filename;
+    const od=m.difficulty.OverallDifficulty??'?';
+    const ar=m.difficulty.ApproachRate??'?';
+    const mode={0:'Standard',1:'Taiko',2:'Catch',3:'Mania'}[parseInt(m.meta['Mode']??'0')]??'Standard';
+    const item=document.createElement('div');
+    item.className='beatmap-item'+(i===0?' selected':'');
+    item.innerHTML=`
+      <input type="radio" name="beatmap" value="${i}" ${i===0?'checked':''} id="bm${i}">
+      <div class="beatmap-info">
+        <div class="beatmap-name">${esc(diff)}</div>
+        <div class="beatmap-meta">${esc(mode)} · OD ${od} · AR ${ar} · ${m.hitObjects.length} objects</div>
+      </div>
+      <span class="diff-pill">${esc(diff)}</span>`;
+    item.addEventListener('click',()=>{
+      document.querySelectorAll('.beatmap-item').forEach(el=>el.classList.remove('selected'));
+      item.classList.add('selected');
+      item.querySelector('input').checked=true;
+      selectedMap=availableMaps[i];
+    });
+    beatmapList.appendChild(item);
+  }
+
+  beatmapSection.style.display='';
+  convertSection.style.display='';
+  convertBtn.disabled=false;
+  setProgress(100,'Ready');
+
+  const title=availableMaps[0].meta['Title']||'?';
+  const artist=availableMaps[0].meta['Artist']||'?';
+  log(`${esc(title)} — ${esc(artist)}`,'ok');
+  if(availableMaps[0].timingPoints.length)
+    log(`Main BPM: ${getMainBpm(availableMaps[0].timingPoints)}`,'info');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONVERT
+// ═══════════════════════════════════════════════════════════════════
+async function convert(){
+  if(!selectedMap||!loadedZip) return;
+  convertBtn.disabled=true;
+  clearLog();
+  outputSection.style.display='none';
+
+  log('Building chart…','info');
+  setProgress(5,'Building chart…');
+
+  const options={bpm:optBpm.value.trim(),speed:optSpeed.value,strums:optStrums.checked};
+  let chartResult;
+  try{ chartResult=buildChart(selectedMap,options); }
+  catch(e){ log('Chart error: '+e.message,'err'); convertBtn.disabled=false; return; }
+
+  resultChartJSON=chartResult.json;
+  log(`${chartResult.noteCount} notes · ${chartResult.sectionCount} sections · BPM ${chartResult.bpm}`,'ok');
+  setProgress(30,'Loading audio…');
+
+  // find audio in archive
+  const aName=selectedMap.audioFilename;
+  let aKey=loadedZip.files.find(k=>k.toLowerCase()===aName.toLowerCase()||k.split('/').pop().toLowerCase()===aName.toLowerCase());
+  if(!aKey) aKey=loadedZip.files.find(k=>/\.(mp3|ogg|wav)$/i.test(k));
+
+  let aSize=0;
+  audioBytes=null;
+  if(aKey){
+    try{
+      audioBytes=await loadedZip.read(aKey);
+      aSize=audioBytes.length;
+      log(`Audio: ${aKey} (${fmtBytes(aSize)})`,'ok');
+    }catch(e){ log('Audio read failed: '+e.message,'warn'); }
+  } else {
+    log(`No audio found in archive (expected "${aName}")`,'warn');
+  }
+
+  setProgress(70,'Building ZIP…');
+
+  const rawFolder=optFolder.value.trim()||sanitize((chartResult.title||'song')+'-'+(chartResult.artist||''));
+  const folder=sanitize(rawFolder);
+
+  const zip=ZipWriter.create();
+  const enc=new TextEncoder();
+  zip.addFile(`songs/${folder}/chart.json`, enc.encode(resultChartJSON));
+  if(audioBytes) zip.addFile(`songs/${folder}/audio.mp3`, audioBytes);
+  resultZipBytes=zip.build();
+
+  log(`ZIP ready — ${fmtBytes(resultZipBytes.length)}`,'ok');
+  setProgress(100,'Done');
+
+  const chartSize=enc.encode(resultChartJSON).length;
+  outputTitle.textContent=`songs/${folder}/ — ready`;
+  fileTree.innerHTML=`
+    <span class="tree-folder">songs/</span>
+    <span class="tree-folder" style="padding-left:16px">└─ ${esc(folder)}/</span>
+    <span class="tree-file">├─ chart.json <span class="tree-size">${fmtBytes(chartSize)}</span></span>
+    ${audioBytes
+      ?`<span class="tree-file">└─ audio.mp3 <span class="tree-size">${fmtBytes(aSize)}</span></span>`
+      :`<span class="tree-file log-warn">└─ audio.mp3  not found</span>`}`;
+  outputStats.innerHTML=`
+    <div class="stat-item"><div class="stat-val">${chartResult.noteCount}</div><div class="stat-key">notes</div></div>
+    <div class="stat-item"><div class="stat-val">${chartResult.sectionCount}</div><div class="stat-key">sections</div></div>
+    <div class="stat-item"><div class="stat-val">${chartResult.bpm}</div><div class="stat-key">BPM</div></div>
+    <div class="stat-item"><div class="stat-val">${fmtBytes(resultZipBytes.length)}</div><div class="stat-key">zip size</div></div>`;
+  outputSection.style.display='';
+  outputSection.scrollIntoView({behavior:'smooth',block:'nearest'});
+  btnDownload.dataset.folder=folder;
+  convertBtn.disabled=false;
+  log('Done. Extract the ZIP into your executor Workspace folder.','ok');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════════════════════════════
+dropzone.addEventListener('dragover', e=>{e.preventDefault();dropzone.classList.add('drag-over');});
+dropzone.addEventListener('dragleave',e=>{if(!dropzone.contains(e.relatedTarget))dropzone.classList.remove('drag-over');});
+dropzone.addEventListener('dragend', ()=>dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop',e=>{
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const f=e.dataTransfer.files[0];
+  if(f) loadOsz(f);
+});
+
+browseBtn.addEventListener('click',e=>{
+  e.stopPropagation();
+  fileInput.value='';
+  fileInput.click();
+});
+
+fileInput.addEventListener('change',()=>{
+  if(fileInput.files[0]) loadOsz(fileInput.files[0]);
+});
+
+convertBtn.addEventListener('click', convert);
+
+btnCopyJson.addEventListener('click',async()=>{
+  if(!resultChartJSON) return;
+  try{
+    await navigator.clipboard.writeText(resultChartJSON);
+    const o=btnCopyJson.textContent;
+    btnCopyJson.textContent='Copied!';
+    setTimeout(()=>{btnCopyJson.textContent=o;},1500);
+  }catch(e){ log('Clipboard failed — try downloading instead','warn'); }
+});
+
+btnDownload.addEventListener('click',()=>{
+  if(!resultZipBytes) return;
+  const folder=btnDownload.dataset.folder||'song';
+  const blob=new Blob([resultZipBytes],{type:'application/zip'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`mmm-${folder}.zip`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+});
+</script>
+</body>
+</html>
