@@ -1,6 +1,8 @@
-# OSZ → Monday Morning Misery GitHub Action
+# OSZ → Monday Morning Misery GitHub Action + built in convert site
 
 Converts an osu!mania 4K chart and extracts the matching song audio.
+
+coverter site https://louaipro99.github.io/MMM-custom-charts/
 
 ## Repository layout
 
